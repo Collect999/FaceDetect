@@ -11,9 +11,11 @@ import ARKit
 struct ContentView: View {
     @StateObject private var cameraModel = CameraModel()
     @State private var countdown = 3
-    @State private var isCountingDown = true
-    @State private var message = ""
+    @State private var isCountingDown = false // Start countdown manually
+    @State private var message = "Press Start to Calibrate"
     @State private var baselineGestures: [ARFaceAnchor.BlendShapeLocation: Float] = [:]
+    @State private var gestureChanges: [(String, Float, Float, Float, Float)] = [] // Including before and after averages
+    @State private var showTable = false
     
     var body: some View {
         ZStack {
@@ -35,40 +37,66 @@ struct ContentView: View {
                         .padding()
                         .background(Color.black.opacity(0.5))
                         .cornerRadius(10)
+                    
+                    Button(action: startCountdown) {
+                        Text("Start")
+                            .font(.system(size: 20))
+                            .padding()
+                            .background(Color.green)
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
+                            .padding(.top, 20)
+                    }
+                    
+                    if showTable {
+                        List(gestureChanges, id: \.0) { (gestureName, change, percentage, beforeAvg, afterAvg) in
+                            VStack(alignment: .leading) {
+                                Text("Gesture: \(gestureName)")
+                                Text("Before Avg: \(String(format: "%.2f", beforeAvg))")
+                                Text("After Avg: \(String(format: "%.2f", afterAvg))")
+                                Text("Change: \(String(format: "%.2f", change))")
+                                Text("Percentage: \(String(format: "%.2f", percentage))%")
+                            }
+                            .padding()
+                        }
+                        .frame(maxHeight: 300)
+                    }
                 }
             }
         }
         .onAppear {
-            startCountdown()
+            cameraModel.startCapture() // Initialize camera view
+        }
+        .alert(isPresented: $cameraModel.showAlert) {
+            Alert(title: Text("Unsupported Device"), message: Text("Your device does not support AR features."), dismissButton: .default(Text("OK")))
         }
     }
     
     func startCountdown() {
+        isCountingDown = true
+        countdown = 3
         Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { timer in
             if countdown > 0 {
                 countdown -= 1
                 cameraModel.captureBaselines { capturedGestures in
                     for (gesture, value) in capturedGestures {
-                        baselineGestures[gesture] = value
+                        baselineGestures[gesture, default: 0] += value / 3 // Average over 3 seconds
                     }
                 }
             } else {
                 timer.invalidate()
                 isCountingDown = false
                 message = "Detecting gestures..."
-                cameraModel.startCapture()
                 
                 DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
                     cameraModel.stopCapture()
-                    let strongestGesture = cameraModel.getStrongestGesture(baselineGestures: baselineGestures)
+                    gestureChanges = cameraModel.getGestureChanges(baselineGestures: baselineGestures)
+                    showTable = true
                     
-                    print("Detected gestures: \(cameraModel.getAllGestures())")
-                    
-                    if strongestGesture.1 > 0 {
-                        message = "Strongest gesture: \(strongestGesture.0) (\(String(format: "%.2f", strongestGesture.1)))"
+                    if let strongestGesture = gestureChanges.first {
+                        message = "Strongest gesture: \(strongestGesture.0) - Change: \(String(format: "%.2f", strongestGesture.1))%"
                     } else {
-                        message = "No significant gesture detected, restarting..."
-                        resetDetection()
+                        message = "No significant gesture detected."
                     }
                 }
             }
@@ -76,9 +104,11 @@ struct ContentView: View {
     }
     
     func resetDetection() {
-        countdown = 3
-        isCountingDown = true
+        message = "Press Start to Calibrate"
+        isCountingDown = false
         baselineGestures.removeAll()
+        showTable = false
+        gestureChanges.removeAll()
         startCountdown()
     }
 }
@@ -86,7 +116,7 @@ struct ContentView: View {
 class CameraModel: NSObject, ObservableObject, ARSessionDelegate {
     @Published var session = ARSession()
     private var gestures: [ARFaceAnchor.BlendShapeLocation: Float] = [:]
-    private var baselineGestures: [ARFaceAnchor.BlendShapeLocation: Float] = [:]
+    @Published var showAlert = false
     
     override init() {
         super.init()
@@ -95,7 +125,9 @@ class CameraModel: NSObject, ObservableObject, ARSessionDelegate {
     
     func setupARKit() {
         guard ARFaceTrackingConfiguration.isSupported else {
-            print("AR Face Tracking is not supported on this device.")
+            DispatchQueue.main.async {
+                self.showAlert = true
+            }
             return
         }
         
@@ -105,7 +137,7 @@ class CameraModel: NSObject, ObservableObject, ARSessionDelegate {
     }
     
     func startCapture() {
-        session.run(ARFaceTrackingConfiguration())
+        session.run(ARFaceTrackingConfiguration(), options: [.resetTracking, .removeExistingAnchors])
     }
     
     func stopCapture() {
@@ -121,7 +153,7 @@ class CameraModel: NSObject, ObservableObject, ARSessionDelegate {
     }
     
     private func processBlendShapes(_ blendShapes: [ARFaceAnchor.BlendShapeLocation: NSNumber]) {
-        gestures.removeAll() // Clear previous data
+        gestures.removeAll()
         for (blendShape, value) in blendShapes {
             gestures[blendShape] = value.floatValue
         }
@@ -133,17 +165,17 @@ class CameraModel: NSObject, ObservableObject, ARSessionDelegate {
         }
     }
     
-    func getStrongestGesture(baselineGestures: [ARFaceAnchor.BlendShapeLocation: Float]) -> (String, Float) {
-        // Calculate the change from baseline for each gesture
-        let changes = gestures.mapValues { current in
-            current - (baselineGestures[gestures.first?.key ?? ARFaceAnchor.BlendShapeLocation(rawValue: "Unknown")] ?? 0)
+    func getGestureChanges(baselineGestures: [ARFaceAnchor.BlendShapeLocation: Float]) -> [(String, Float, Float, Float, Float)] {
+        var changes: [(String, Float, Float, Float, Float)] = []
+        
+        for (gesture, afterValue) in gestures {
+            let beforeValue = baselineGestures[gesture] ?? 0
+            let change = afterValue - beforeValue
+            let percentageChange = (beforeValue != 0) ? (change / beforeValue) * 100 : 0
+            changes.append((gesture.rawValue, change, percentageChange, beforeValue, afterValue))
         }
         
-        // Find the gesture with the most significant change
-        guard let strongestChange = changes.max(by: { abs($0.value) < abs($1.value) }) else {
-            return ("No significant gesture detected", 0)
-        }
-        return (strongestChange.key.rawValue, strongestChange.value)
+        return changes.sorted(by: { abs($0.1) > abs($1.1) })
     }
     
     func getAllGestures() -> [String: Float] {
