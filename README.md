@@ -9,8 +9,11 @@ Plan
 - After detection - show table, then choose gesture, show facial gesture movement on screen 
 - Add threshold slider
 - Add ability to comine gestures eg "blink either eye" (not just left or right)
-  
-- Allow for detection of multiple gestures
+- provide a mode tp detect rather than setting
+- in detect mode just flash a alert on screen / indicator / beep to say gesture triggered
+
+
+
 
 Issues
 
