@@ -98,17 +98,15 @@ struct GestureDetectionView: View {
             .sheet(isPresented: $displayDetectionResults, content: {
                 DetectionResultsView(gestureChanges: gestureChanges, strongestGesture: getStrongestGesture())
             })
-            .navigationTitle(viewModel.detectionMode == .auto ? AppStrings.appTitle : viewModel.selectedGesture)
+            .navigationTitle(viewModel.detectionMode == .auto ? AppStrings.appTitle : viewModel.selectedGesture.joined(separator: ", "))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(content: {
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink {
-                        GesturesListView { selectedDetectionMode, selectedGesture in
-                            viewModel.detectionMode = selectedDetectionMode
-                            viewModel.selectedGesture = selectedGesture
-                            UserDefaults.standard.setValue(selectedDetectionMode == .auto ? 1 : 2, forKey: StorageKeys.detectionMode)
-                            UserDefaults.standard.setValue(selectedGesture, forKey: StorageKeys.selectedGesture)
-                        }
+                        GesturesListView { selectedDetectionMode, selectedGestures in
+                                viewModel.detectionMode = selectedDetectionMode
+                                viewModel.selectedGesture = selectedGestures
+                            }
                     } label: {
                         ZStack {
                             Image(systemName: "faceid")
@@ -245,7 +243,7 @@ struct GestureDetectionView: View {
             viewModel.detectionMode = selectedDetectionMode == 1 ? .auto : .manual
         }
         if let selectedGesture = UserDefaults.standard.value(forKey: StorageKeys.selectedGesture) as? String, selectedGesture.isEmpty == false {
-            viewModel.selectedGesture = selectedGesture
+            viewModel.selectedGesture = Set([selectedGesture]) 
         }
     }
     

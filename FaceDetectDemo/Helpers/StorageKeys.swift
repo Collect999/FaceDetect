@@ -8,6 +8,7 @@
 import Foundation
 
 enum StorageKeys {
-    static let detectionMode = "detection_mode"
-    static let selectedGesture = "selected_gesture"
+    static let detectionMode = "detectionMode"
+    static let selectedGesture = "selectedGesture"
+    static let selectedGestures = "selectedGestures" 
 }

@@ -9,7 +9,8 @@ import Foundation
 import ARKit
 
 class GesureListViewModel: ObservableObject {
-    @Published var selectedItem: String = ""
+    // Property to store the selected gestures
+    @Published var selectedItems: Set<String> = []
     @Published var blendShapes = [String]()
     @Published var selectedDetectionMode: GestureDetectionViewModel.DetectMode = .auto
     

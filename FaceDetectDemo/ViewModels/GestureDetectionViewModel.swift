@@ -26,7 +26,7 @@ class GestureDetectionViewModel: NSObject, ObservableObject, ARSessionDelegate {
     @Published var showAlert = false
     @Published var detectionState: DetectionState = .none
     @Published var detectionMode: DetectMode = .auto
-    @Published var selectedGesture: String = ""
+    @Published var selectedGesture: Set<String> = []
     @Published var countdownTime = 3
     @Published var detectionTime: CGFloat = 3
     @Published var message = AppStrings.startMessage
@@ -108,7 +108,7 @@ class GestureDetectionViewModel: NSObject, ObservableObject, ARSessionDelegate {
         
         guard detectionMode == .manual else { return }
 
-        if let selectedBlendShape = blendShapes.first(where: { $0.key.rawValue == selectedGesture}) {
+        if let selectedBlendShape = blendShapes.first(where: { selectedGesture.contains($0.key.rawValue) })  {
             if selectedBlendShape.value.floatValue > thresholdValue {
                 manualSelectedGestureFound = true
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1, execute: {[weak self] in

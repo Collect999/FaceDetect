@@ -13,9 +13,10 @@ struct GesturesListView: View {
     
     var isPreviewEnabled: Bool {
         guard viewModel.selectedDetectionMode == .manual else { return true }
-        return viewModel.selectedItem != ""
+        return !viewModel.selectedItems.isEmpty
     }
-    var callback: ((GestureDetectionViewModel.DetectMode, String) -> Void)?
+    
+    var callback: ((GestureDetectionViewModel.DetectMode, Set<String>) -> Void)?
     
     var body: some View {
         VStack(spacing: 0) {
@@ -48,7 +49,7 @@ struct GesturesListView: View {
             .padding(.bottom, 8)
             
             Button(action: {
-                callback?(viewModel.selectedDetectionMode, viewModel.selectedItem)
+                callback?(viewModel.selectedDetectionMode, viewModel.selectedItems)
                 presentationMode.wrappedValue.dismiss()
             }, label: {
                 Text(AppStrings.preview)
@@ -73,12 +74,12 @@ struct GesturesListView: View {
     func gestureListRow(shape: String) -> some View {
         VStack {
             HStack {
-                Image(systemName: viewModel.selectedItem == shape ? "checkmark.circle.fill" : "circle")
+                Image(systemName: viewModel.selectedItems.contains(shape) ? "checkmark.circle.fill" : "circle")
                     .resizable()
                     .scaledToFit()
                     .frame(width: 20)
                     .foregroundColor(.black)
-                Text(shape)
+                Text(AppStrings.gestureNames[shape] ?? shape) // Display human-readable string
                     .font(.system(size: 16, weight: .medium))
                 Spacer()
             }
@@ -90,7 +91,11 @@ struct GesturesListView: View {
         .background(Color.white)
         .onTapGesture {
             withAnimation(.easeInOut(duration: 0.3)) {
-                viewModel.selectedItem = shape
+                if viewModel.selectedItems.contains(shape) {
+                    viewModel.selectedItems.remove(shape)
+                } else {
+                    viewModel.selectedItems.insert(shape)
+                }
             }
         }
     }
@@ -99,7 +104,7 @@ struct GesturesListView: View {
         HStack(spacing: 32) {
             Button(action: {
                 viewModel.selectedDetectionMode = .auto
-                viewModel.selectedItem = ""
+                viewModel.selectedItems.removeAll() // Clear selections when switching to auto
             }) {
                 Text(AppStrings.autoDetect)
                     .font(.system(size: 16, weight: .semibold))
@@ -130,8 +135,8 @@ struct GesturesListView: View {
         if let selectedDetectionMode =  UserDefaults.standard.value(forKey: StorageKeys.detectionMode) as? Int {
             viewModel.selectedDetectionMode = selectedDetectionMode == 1 ? .auto : .manual
         }
-        if let selectedGesture = UserDefaults.standard.value(forKey: StorageKeys.selectedGesture) as? String, selectedGesture.isEmpty == false {
-            viewModel.selectedItem = selectedGesture
+        if let selectedGestures = UserDefaults.standard.value(forKey: StorageKeys.selectedGestures) as? [String] {
+            viewModel.selectedItems = Set(selectedGestures)
         }
     }
 }
@@ -141,3 +146,4 @@ struct GesturesListView: View {
         GesturesListView()
     }
 }
+
