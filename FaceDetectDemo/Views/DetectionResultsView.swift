@@ -11,6 +11,10 @@ struct DetectionResultsView: View {
     let gestureChanges: [(String, Float, Float, Float, Float)]
     let strongestGesture: String?
     
+    @ObservedObject var viewModel: GesureListViewModel
+    @Environment(\.presentationMode) var presentationMode
+
+    
     var body: some View {
         VStack {
             HStack(alignment: strongestGesture == nil ? .center : .top, spacing: 16) {
@@ -20,16 +24,35 @@ struct DetectionResultsView: View {
                     .frame(width: 30)
                     .padding(.top, 4)
                 
-                if let strongestGesture {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text(AppStrings.strongestGesture)
-                            .font(.system(size: 17, weight: .bold))
+                if let strongestGesture = strongestGesture {
+                    VStack(spacing: 20) {
+                        Button(action: {
+                            // Update the selectedItems with the strongest gesture
+                            viewModel.selectedItems = Set([strongestGesture])
+                            // Optionally, persist this selection if needed
+                        }) {
+                            Text("Set \(AppStrings.gestureNames[strongestGesture] ?? strongestGesture) as Selected Gesture")
+                                .frame(minWidth: 200, minHeight: 50)
+                                .background(Color.blue)
+                                .foregroundColor(.white)
+                                .cornerRadius(10)
+                        }
                         
-                        Text(strongestGesture)
-                            .font(.system(size: 17, weight: .medium))
+                        Button(action: {
+                            // Switch to manual mode if needed
+                            viewModel.selectedDetectionMode = .manual
+                            // Trigger the preview/trigger mode, navigate to the appropriate view
+                            presentationMode.wrappedValue.dismiss() // Close the current view if needed
+                            // Add logic to navigate or trigger preview
+                        }) {
+                            Text("Move to Preview/Trigger Mode")
+                                .frame(minWidth: 200, minHeight: 50)
+                                .background(Color.green)
+                                .foregroundColor(.white)
+                                .cornerRadius(10)
+                        }
                     }
-                } else {
-                    Text(AppStrings.noSignificantGestureDetected)
+                    .padding(.top, 20)
                 }
                 Spacer()
             }
@@ -64,5 +87,9 @@ struct DetectionResultsView: View {
 }
 
 #Preview {
-    DetectionResultsView(gestureChanges: [], strongestGesture: "Hello may dsdsdssd huue iioueje gjbaest gestures inline in the test")
+    DetectionResultsView(
+        gestureChanges: [],
+        strongestGesture: "Hello may dsdsdssd huue iioueje gjbaest gestures inline in the test",
+        viewModel: GesureListViewModel()
+    )
 }

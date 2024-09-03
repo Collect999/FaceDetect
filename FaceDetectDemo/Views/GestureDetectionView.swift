@@ -95,9 +95,13 @@ struct GestureDetectionView: View {
             .alert(isPresented: $viewModel.showAlert) {
                 Alert(title: Text(AppStrings.unsupportedDevice), message: Text(AppStrings.arNotSupported), dismissButton: .default(Text(AppStrings.okay)))
             }
-            .sheet(isPresented: $displayDetectionResults, content: {
-                DetectionResultsView(gestureChanges: gestureChanges, strongestGesture: getStrongestGesture())
-            })
+            .sheet(isPresented: $displayDetectionResults) {
+                DetectionResultsView(
+                    gestureChanges: gestureChanges,
+                    strongestGesture: getStrongestGesture(),
+                    viewModel: GesureListViewModel()  // Create and pass a new instance
+                )
+            }
             .navigationTitle(viewModel.detectionMode == .auto ? AppStrings.appTitle : viewModel.selectedGesture.joined(separator: ", "))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(content: {
